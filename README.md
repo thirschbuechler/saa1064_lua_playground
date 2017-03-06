@@ -1,10 +1,10 @@
 Found a Humax Btci-5900 frontpanel with a saa1064 (i2c) led segment driver in the basement, might as well play with it a little.
 
-If you're struggling with i2c in lua on your nodemcu, take a look at how wrdata is implemented (and wrdata_bits.png): Also: Addressing is 7bit only (like on arduino: the LSB of the 8bit adr. gets cut), ACKs don't have to be catched.
 
 
 
-Installation (Linux-syntax):
+
+#Installation (Linux-syntax):
 
 Write the file to a nodemcu V2:
 `sudo ./luatool.py --port /dev/ttyUSB0 --src humax_saa1064.lua --dest init.lua --verbose --baud 115200`
@@ -22,3 +22,22 @@ a prompt (">") should appear
 (For viewing and editing I prefer to use Atom, with the `lua-language` package installed: (webupd8 Atom repo)[1]  and `apm install lua-language` )
 
 [1]:https://launchpad.net/~webupd8team/+archive/ubuntu/atom
+
+#I2C-notes
+If you're struggling with i2c in lua on your nodemcu, take a look at how wrdata is implemented:
+![alt-tag](wrdata_bits.png)
+```lua
+function wrdata(adr, data1, data2, digitsa, digitsb, digitsc, digitsd)
+    i2c.start(id)
+    i2c.address(id, adr, i2c.TRANSMITTER)
+    i2c.write(id, data1)
+    i2c.write(id, data2)
+    i2c.write(id, digitsa)
+    i2c.write(id, digitsb)
+    i2c.write(id, digitsc)
+    i2c.write(id, digitsd)
+    i2c.stop(id)
+end
+```
+
+Also: Addressing is 7bit only (like on arduino: the LSB of the 8bit adr. gets cut), ACKs don't have to be catched.
