@@ -3,6 +3,7 @@ id  = 0
 sda = 1
 scl = 2
 
+-- timer ids & intervals (iv) in ms
 timer0 = 0
 timer0_iv = 2000
 timer1 = 1
@@ -11,21 +12,30 @@ timer1_iv = 500
 i2c.setup(id, sda, scl, i2c.SLOW)
 
 -- scan for devices
+-- http://www.esp8266.com/viewtopic.php?f=19&t=771#sthash.KvPQiex9.dpuf
 for i=0,127 do
   i2c.start(id)
   resCode = i2c.address(id, i, i2c.TRANSMITTER)
   i2c.stop(id)
   if resCode == true then print("We have a device on address 0x" .. string.format("%02x", i) .. " (" .. i ..")") end
 end
--- from: http://www.esp8266.com/viewtopic.php?f=19&t=771#sthash.KvPQiex9.dpuf
 
 hex_digits={63, 6, 91, 79, 102, 109, 125,7, 127, 111, 119, 124, 57, 94, 121, 113}
 -- 0 to 9 (1-10), then A to F (11-16)
 -- http://tronixstuff.com/2011/07/21/tutorial-arduino-and-the-nxp-saa1064-4-digit-led-display-driver/
 -- http://www.rapidtables.com/convert/number/binary-to-hex.htm
 
--- todo: alphabet like in http://www.twyman.org.uk/Fonts/
--- M = 21
+-- alphabet like in http://www.twyman.org.uk/Fonts/
+alph = {119, 124, 57, 94, 121, 113, 111, 118, 6, 30, 118, 56, 21, 84, 63, 115, 103, 80, 109, 120, 62, 28, 42, 118, 110, 91}
+--       A,   B,  C,   D, E,   F,    G,  H, I=1,  J, K=H, L,  M, N,  O=0, P,   Q,   R, S=5,  T,  U,   V,  W, X=H,   Y, Z=2
+-- small_h=116, big_G=61, mirror_F=71, small_o=92
+dash = 64
+degree = 99
+lightning = 100
+questionmark = 83
+underscore = 8
+-- reverse_lightning=82,II=54, equals=65/72, two_bars=9, gamma=51, xi=73
+
 
 function wrdata(adr, data1, data2, digitsa, digitsb, digitsc, digitsd)
     i2c.start(id)
@@ -43,6 +53,11 @@ function wrdata_all(adr, data1, data2, digits)
     wrdata(adr, data1, data2, digits, digits, digits, digits)
 end
 
+-- run wrdata with defaults
+function wrdata_def(digitsa, digitsb, digitsc, digitsd)
+    wrdata(0x38, 0x00, 0x47, digitsa, digitsb, digitsc, digitsd)
+end
+
 function test_args(args)
     wrdata(0x38,0x00,args,hex_digits[2],hex_digits[3],hex_digits[4],hex_digits[5])
     -- 1,2,3,4
@@ -55,7 +70,8 @@ end
 function clear_disp()
     wrdata_all(0x38, 0x00, 0x47, 0x00)
 end
--- light up segments at this memory position, plus 3 followers
+
+-- light up segments at this mapping position plus 3 following map. pos.
 function karak(j)
     wrdata(0x38, 0x00, 0x47, j, j+1, j+2, j+3)
 end
@@ -74,6 +90,7 @@ function go_dance()
     dance(127)
 end
 
+-- helper for printdigits: turn an int into an array
 function intarray(digit)
     buffer = tostring(digit)
     len=string.len(buffer)
@@ -95,12 +112,15 @@ function intarray(digit)
         m=m/10
     end
 
-    table.foreachi(data,print)
+    -- print table debug fct
+    -- table.foreachi(data,print)
 
     return data
 end
 
+-- print more than 4 digits by shifting left (caution: can't take larger than integer arg)
 function printdigits(number)
+    -- first, disable the alternating timer from top-level of valinfo
     tmr.stop(timer0)
     digits = intarray(number)
     str_digits = {}
@@ -127,13 +147,11 @@ function printdigits(number)
 
 end
 
---this cycles through str_digits
+--cycle through str_digits with timer1
 function tmr_digit(i,count, str_digits)
   tmr.alarm(timer1, timer1_iv, tmr.ALARM_SINGLE, function ()
-      print("tmr1 activated")
+
       j=i+1
-      print("i+1",j)
-      print("str_digits[i+1] == ",str_digits[i+1])
       wrdata(0x38,0x00,0x47,str_digits[i],str_digits[i+1],str_digits[i+2],str_digits[i+3])
       -- +1 more for every right digit to adress the next one
       -- if there are only 4 digits, the timer doesn't get used more than once
@@ -146,18 +164,100 @@ function tmr_digit(i,count, str_digits)
       end)
 end
 
--- turns segment on at val, puts out val, alternates
+-- alternate between karak and printdigit of karak's argument
 function valinfo(val)
     clear_disp()
     tmr.alarm(timer0, timer0_iv, 1, function ()
-        print("tmr0 activated")
+
         if value then
-            print("disp 4 characters at the given pos")
+            -- display 4 characters at the given pos
             karak(val)
         else
-            print("disp the pos")
+            -- display the pos
             printdigits(val)
         end
         value = not value
     end)
+end
+
+-- run a charakter array around continuously
+function loopy(arry)
+    clear_disp()
+    len = table.getn(arry)
+    i = 1
+
+    tmr.alarm(timer0, timer0_iv, 1, function ()
+        wrdata_def(arry[i],arry[i+1],arry[i+2],arry[i+3])
+        if i <(len-3) then
+            i = i +1
+        else
+            i=1
+        end
+
+    end)
+end
+
+-- run a snake made from characters around continuously
+function snake(head, body, tail, blank)
+    clear_disp()
+    snake = {blank, blank, blank, head, body, body, tail, blank, blank, blank, blank}
+    loopy(snake)
+end
+
+-- example snake
+function snake_def()
+    snake(42, hex_digits[1],hex_digits[1],0)
+end
+
+-- loop seamlessly
+function loopy_s(array)
+    table.insert(array,array[1])
+    table.insert(array,array[2])
+    table.insert(array,array[3])
+    loopy(array)
+end
+
+-- loop the alphabet
+function run_alph()
+    loopy_s(alph)
+end
+
+-- turn text into the corresponding characters
+function text_to_c_array(str)
+  arry={}
+
+  str=string.upper(str)
+
+  -- for each string character find the mapped segment-character
+  for i=1,string.len(str) do
+      ascii = string.byte (str, i)
+      -- 20 is space (space-bar)
+      -- 48-57 is 0-9
+      -- 65-90 is A-Z
+
+      if (ascii>47 and ascii<58) then
+          table.insert(arry,hex_digits[ascii-47])
+
+      elseif (ascii>64 and ascii<91) then
+          table.insert(arry,alph[ascii-64])
+          -- 65 = "A" --> index "1"
+      else
+           -- insert blank character
+           table.insert(arry,0)
+      end
+  end
+
+
+  return arry
+
+end
+
+function output_text(str)
+  arry={}
+  arry=text_to_c_array(str)
+
+  -- insert blank characters at start and end
+  table.insert(arry,1,0)
+  table.insert(arry,0)
+  loopy_s(arry)
 end
