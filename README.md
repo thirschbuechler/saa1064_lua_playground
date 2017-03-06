@@ -19,7 +19,7 @@ a prompt (">") should appear
 
 (Be sure to not have a print-loop at startup, since you may not be able to write new files without exiting the loop. This might require a re-flash with esptool.py .. just sayin'..)
 
-(For viewing and editing I prefer to use Atom, with the `lua-language` package installed: (webupd8 Atom repo)[1]  and `apm install lua-language` )
+(For viewing and editing I prefer to use Atom, with the packages `lua-language, linter, linter-luaparse`: (webupd8 Atom repo)[1]  and `apm install lua-language linter linter-luaparse`)
 
 [1]:https://launchpad.net/~webupd8team/+archive/ubuntu/atom
 
